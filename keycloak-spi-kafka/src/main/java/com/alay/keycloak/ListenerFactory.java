@@ -6,10 +6,10 @@ import org.keycloak.events.EventListenerProviderFactory;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 
-public class KeycloakCustomEventListenerProviderFactory implements EventListenerProviderFactory {
+public class ListenerFactory implements EventListenerProviderFactory {
     @Override
     public EventListenerProvider create(KeycloakSession keycloakSession) {
-        return new KeycloakCustomEventListener();
+        return new Listener(new Producer());
     }
 
     @Override

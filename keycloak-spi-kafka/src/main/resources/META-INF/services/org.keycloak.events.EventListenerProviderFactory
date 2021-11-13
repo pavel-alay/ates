@@ -1,1 +1,1 @@
-com.alay.keycloak.KeycloakCustomEventListenerProviderFactory
+com.alay.keycloak.ListenerFactory
