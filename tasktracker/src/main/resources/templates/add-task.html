@@ -17,9 +17,14 @@
                     <form action="#" th:action="@{/addtask}" th:object="${task}" method="post">
                         <div class="row">
                             <div class="form-group col-md-6">
-                                <label for="name" class="col-form-label">Description</label>
-                                <input type="text" th:field="*{description}" class="form-control" id="name" placeholder="Name">
-                                <span th:if="${#fields.hasErrors('description')}" th:errors="*{description}" class="text-danger"></span>
+                                <label for="jiraId" class="col-form-label">Jira ID</label>
+                                <input type="text" th:field="*{jiraId}" class="form-control" id="jiraId" placeholder="JIRA ID">
+                                <span th:if="${#fields.hasErrors('jiraId')}" th:errors="*{jiraId}" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="title" class="col-form-label">Title</label>
+                                <input type="text" th:field="*{title}" class="form-control" id="title" placeholder="Title">
+                                <span th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="row">
