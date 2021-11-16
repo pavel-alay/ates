@@ -26,13 +26,15 @@
 				<table class="table table-striped table-responsive-md">
 					<thead>
 					<tr class="text-left">
-						<th>Description</th>
+						<th>Jira Id</th>
+						<th>Title</th>
 						<th>Status</th>
 					</tr>
 					</thead>
 					<tbody>
 					<tr th:each="task : ${tasks}">
-						<td th:text="${task.description}"></td>
+						<td th:text="${task.jiraId}"></td>
+						<td th:text="${task.title}"></td>
 						<td th:text="${task.status}"></td>
 						<!--<td><a th:href="@{/edit/{id}(id=${task.id})}" class="btn btn-primary fas fa-edit"></a></td>-->
 						<!--<td><a th:href="@{/delete/{id}(id=${task.id})}" class="btn btn-primary fas fa-times"></a></td>-->

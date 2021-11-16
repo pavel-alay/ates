@@ -8,21 +8,11 @@ import org.keycloak.events.admin.AdminEvent;
 
 public class KeycloakCustomEventListener implements EventListenerProvider {
 
-    public static final String USER_EVENTS_TOPIC = "streaming_keycloak_user_events";
-    public static final String ADMIN_EVENTS_TOPIC = "streaming_keycloak_admin_events";
+    public static final String ADMIN_EVENTS_TOPIC = "keycloak_admin_events.stream";
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void onEvent(Event event) {
-        String userId = event.getUserId();
-        System.out.println("Event: " + userId);
-
-        try {
-            Producer.publishEvent(USER_EVENTS_TOPIC,
-                    userId, mapper.writeValueAsString(event));
-        } catch (JsonProcessingException e) {
-            System.out.println("ERROR. Event: " + userId);
-        }
     }
 
     @Override

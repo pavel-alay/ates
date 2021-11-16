@@ -3,7 +3,6 @@ package com.alay.tasktracker.entities;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.ToString;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -18,7 +17,6 @@ import java.util.UUID;
 @Entity
 @Getter
 @Setter
-@ToString
 @NoArgsConstructor
 public class Task {
 
@@ -30,11 +28,15 @@ public class Task {
     @Column(name = "public_id")
     private String publicId = UUID.randomUUID().toString();
 
-    @Column(name = "public_user_id")
-    private String publicUserId;
+    @Column(name = "user_id")
+    private Long userId;
 
-    @NotBlank(message = "Description is mandatory")
-    private String description;
+    @NotBlank(message = "Title is mandatory")
+    private String title;
+
+    @NotBlank(message = "JIRA id is mandatory")
+    @Column(name = "jira_id")
+    private String jiraId;
 
     @Enumerated(EnumType.STRING)
     private TaskStatus status = TaskStatus.Open;
