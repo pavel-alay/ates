@@ -12,6 +12,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
 import java.util.UUID;
 
 @Entity
@@ -32,6 +33,7 @@ public class Task {
     private Long userId;
 
     @NotBlank(message = "Title is mandatory")
+    @Pattern(regexp = "[^\\[\\]]*", message = "Title must not contain [ or ]")
     private String title;
 
     @NotBlank(message = "JIRA id is mandatory")
