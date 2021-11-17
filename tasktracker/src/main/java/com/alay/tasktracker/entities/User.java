@@ -7,6 +7,8 @@ import lombok.ToString;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -29,6 +31,9 @@ public class User {
 
     @NotBlank(message = "Name is mandatory")
     private String username;
+
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.USER;
 
     public User(String username, String publicId) {
         this.username = username;

@@ -41,5 +41,5 @@ public class Task {
     private String jiraId;
 
     @Enumerated(EnumType.STRING)
-    private TaskStatus status = TaskStatus.Open;
+    private TaskStatus status = TaskStatus.OPEN;
 }

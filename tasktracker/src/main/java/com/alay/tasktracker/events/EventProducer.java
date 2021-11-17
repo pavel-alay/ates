@@ -1,7 +1,5 @@
 package com.alay.tasktracker.events;
 
-import com.alay.tasktracker.entities.Task;
-import com.alay.tasktracker.entities.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -33,16 +31,16 @@ public class EventProducer {
 
     @Retryable(value = Exception.class, maxAttemptsExpression = "10",
             backoff = @Backoff(delayExpression = "5000"))
-    public void taskCreated(Task task) {
-        publish(taskCreatedTemplate, new TaskCreated(task), TASK_CREATED_TOPIC);
+    public void taskCreated(String publicTaskId, String jiraId, String title) {
+        publish(taskCreatedTemplate, new TaskCreated(publicTaskId, jiraId, title), TASK_CREATED_TOPIC);
     }
 
-    public void taskAssigned(Task task, User user) {
-        publish(taskAssignedTemplate, new TaskAssigned(task, user), TASK_ASSIGNED_TOPIC);
+    public void taskAssigned(String publicTaskId, String publicUserId) {
+        publish(taskAssignedTemplate, new TaskAssigned(publicTaskId, publicUserId), TASK_ASSIGNED_TOPIC);
     }
 
-    public void taskCompleted(Task task, User user) {
-        publish(taskCompletedTemplate, new TaskCompleted(task, user), TASK_COMPLETED_TOPIC);
+    public void taskCompleted(String publicTaskId, String publicUserId) {
+        publish(taskCompletedTemplate, new TaskCompleted(publicTaskId, publicUserId), TASK_COMPLETED_TOPIC);
     }
 
     private static <T> void publish(KafkaTemplate<String, T> template, T event, String topic) {
