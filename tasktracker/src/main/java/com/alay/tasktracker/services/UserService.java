@@ -1,20 +1,21 @@
 package com.alay.tasktracker.services;
 
 import com.alay.tasktracker.entities.User;
-import com.alay.tasktracker.events.EventConsumer;
 import com.alay.tasktracker.repositories.UserRepository;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class UserService {
 
+    // TODO move to events
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     static class CreateUser {
@@ -28,7 +29,6 @@ public class UserService {
         String username;
     }
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(EventConsumer.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final UserRepository userRepository;
@@ -37,7 +37,8 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public void processUserEvent(ConsumerRecord<String, String> consumerRecord) {
+    @KafkaListener(topics = "keycloak_admin_events.stream", groupId = "task_tracker")
+    public void processEvents(ConsumerRecord<String, String> consumerRecord) {
         if ("USER/CREATE".equals(consumerRecord.key())) {
             try {
                 CreateUser createUser = MAPPER.readValue(consumerRecord.value(), CreateUser.class);
@@ -45,9 +46,9 @@ public class UserService {
                 String publicId = createUser.resourcePath.substring(6);
                 String username = representation.username;
                 userRepository.save(new User(username, publicId));
-                LOGGER.info("New user added {}: {}", username, publicId);
+                log.info("New user added {}: {}", username, publicId);
             } catch (JsonProcessingException e) {
-                LOGGER.error("Cannot deserialize create user: {}, {}", consumerRecord.key(), consumerRecord.value());
+                log.error("Cannot deserialize create user: {}, {}", consumerRecord.key(), consumerRecord.value());
             }
         }
     }

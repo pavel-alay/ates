@@ -1,12 +1,14 @@
-package com.alay.tasktracker.events;
+package com.alay.events;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 public class TaskCreated {
-    final String publicTaskId;
-    final String jiraId;
-    final String title;
+    String publicTaskId;
+    String jiraId;
+    String title;
 
     public TaskCreated(String publicTaskId, String jiraId, String title) {
         this.publicTaskId = publicTaskId;

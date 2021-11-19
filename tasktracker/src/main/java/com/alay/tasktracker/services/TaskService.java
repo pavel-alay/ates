@@ -1,26 +1,45 @@
 package com.alay.tasktracker.services;
 
+import com.alay.events.TaskAssigned;
+import com.alay.events.TaskCompleted;
+import com.alay.events.TaskCreated;
 import com.alay.tasktracker.entities.Task;
 import com.alay.tasktracker.entities.TaskStatus;
 import com.alay.tasktracker.entities.User;
-import com.alay.tasktracker.events.EventProducer;
 import com.alay.tasktracker.repositories.TaskRepository;
 import com.alay.tasktracker.repositories.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class TaskService {
-    TaskRepository taskRepository;
-    UserRepository userRepository;
-    EventProducer producer;
 
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository, EventProducer producer) {
+    private static final String TASK_CREATED_TOPIC = "task-created.stream";
+    private static final String TASK_ASSIGNED_TOPIC = "task-assigned";
+    private static final String TASK_COMPLETED_TOPIC = "task-completed";
+
+    private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
+
+    private final KafkaTemplate<String, TaskCreated> taskCreatedTemplate;
+    private final KafkaTemplate<String, TaskAssigned> taskAssignedTemplate;
+    private final KafkaTemplate<String, TaskCompleted> taskCompletedTemplate;
+
+
+    public TaskService(TaskRepository taskRepository, UserRepository userRepository,
+                       KafkaTemplate<String, TaskCreated> taskCreatedTemplate,
+                       KafkaTemplate<String, TaskAssigned> taskAssignedTemplate,
+                       KafkaTemplate<String, TaskCompleted> taskCompletedTemplate) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
-        this.producer = producer;
+        this.taskCreatedTemplate = taskCreatedTemplate;
+        this.taskAssignedTemplate = taskAssignedTemplate;
+        this.taskCompletedTemplate = taskCompletedTemplate;
     }
 
     /**
@@ -52,7 +71,8 @@ public class TaskService {
                 .orElseThrow(() -> new IllegalStateException("User not found"));
         task.setStatus(TaskStatus.COMPLETED);
         taskRepository.save(task);
-        producer.taskCompleted(task.getPublicId(), user.getPublicId());
+        publishEvent(new TaskCompleted(task.getPublicId(), user.getPublicId()),
+                TASK_COMPLETED_TOPIC, taskCompletedTemplate);
     }
 
     /**
@@ -61,7 +81,8 @@ public class TaskService {
     public void createTask(Task task) {
         taskRepository.save(task);
         assignTask(task);
-        producer.taskCreated(task.getPublicId(), task.getJiraId(), task.getTitle());
+        publishEvent(new TaskCreated(task.getPublicId(), task.getJiraId(), task.getTitle()),
+                TASK_CREATED_TOPIC, taskCreatedTemplate);
     }
 
     public Iterable<Task> findAll() {
@@ -74,16 +95,22 @@ public class TaskService {
      * @param task a task to assign
      * @throws IllegalStateException if there is no users.
      */
-    protected void assignTask(Task task) {
+    public void assignTask(Task task) {
         User user = userRepository.findRandomUser()
                 .orElseThrow(() -> new IllegalStateException("There is no users"));
         reassignTask(task, user);
     }
 
     // TODO switch to batch operations for both db and mb.
-    protected void reassignTask(Task task, User user) {
+    public void reassignTask(Task task, User user) {
         task.setUserId(user.getId());
         taskRepository.save(task);
-        producer.taskAssigned(task.getPublicId(), user.getPublicId());
+        publishEvent(new TaskAssigned(task.getPublicId(), user.getPublicId()),
+                TASK_ASSIGNED_TOPIC, taskAssignedTemplate);
+    }
+
+    private static <T> void publishEvent(T event, String topic, KafkaTemplate<String, T> template) {
+        log.info("sending payload='{}' to topic='{}'", event, topic);
+        template.send(topic, event);
     }
 }

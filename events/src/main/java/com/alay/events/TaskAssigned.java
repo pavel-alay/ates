@@ -1,11 +1,13 @@
-package com.alay.tasktracker.events;
+package com.alay.events;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 public class TaskAssigned {
-    final String publicTaskId;
-    final String publicUserId;
+    String publicTaskId;
+    String publicUserId;
 
     public TaskAssigned(String publicTaskId, String publicUserId) {
         this.publicTaskId = publicTaskId;
