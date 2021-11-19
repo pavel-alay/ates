@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.1.3:5432/billing_db
+    username: postgres
+    password: postgres
+  jpa:
+    show-sql: false
+    generate-ddl: true
+    properties.hibernate:
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      format_sql: false
+      globally_quoted_identifiers: true
+      ddl-auto: update
+
+  security:
+    oauth2:
+      client:
+        registration:
+          custom:
+            client-id: billing
+            client-secret: 67a06434-e258-464f-84a2-da6ac3c08d6e
+            scope: read,write,roles
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:8081/login/oauth2/code/custom
+        provider:
+          custom:
+            authorization-uri: http://192.168.1.3:8484/auth/realms/ates/protocol/openid-connect/auth
+            token-uri: http://192.168.1.3:8484/auth/realms/ates/protocol/openid-connect/token
+            user-info-uri: http://192.168.1.3:8484/auth/realms/ates/protocol/openid-connect/userinfo
+            user-name-attribute: preferred_username
+
+  thymeleaf:
+    cache: false
+  cache:
+    type: NONE
+
+  kafka:
+    bootstrap-servers: broker:9092
+    consumer:
+      group-id: billing_test1
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        schema.registry.url: schema-registry:8081
+        auto.register.schemas: true
+
+logging:
+  level:
+    root: INFO
+server:
+  port: 8081

@@ -19,6 +19,7 @@
 	<modules>
 		<module>keycloak-spi-kafka</module>
 		<module>tasktracker</module>
+		<module>billing</module>
 		<module>events</module>
 	</modules>
 
