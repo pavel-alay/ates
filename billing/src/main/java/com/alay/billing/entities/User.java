@@ -11,7 +11,10 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.OneToMany;
+import javax.persistence.PrimaryKeyJoinColumn;
 import javax.validation.constraints.NotBlank;
+import java.util.List;
 
 @Entity
 @Getter
@@ -32,4 +35,8 @@ public class User {
     private String username;
 
     private long balance;
+
+    @OneToMany(mappedBy = "user")
+    @PrimaryKeyJoinColumn
+    private List<BillingCycle> billingCycles;
 }

@@ -1,0 +1,50 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<title>Billing</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.1/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-light bg-light">
+	<div class="container-fluid">
+		<a class="navbar-brand" th:href="@{/transactions/}">aTES Billing</a>
+		<span sec:authentication="name" class="navbar-text">preferred_username</span>
+	</div>
+</nav>
+<div th:switch="${transactions}" class="container-fluid">
+	<div class="row">
+		<div class="col-md-6">
+			<h2 th:case="null">No transactions yet!</h2>
+			<div th:case="*">
+				<h2 class="my-3">Transactions</h2>
+				<table class="table table-striped table-responsive-md">
+					<thead>
+					<tr class="text-left">
+						<th>Task</th>
+						<th>User</th>
+						<th>Credit</th>
+						<th>Debit</th>
+						<th>Type</th>
+						<th>Created At</th>
+					</tr>
+					</thead>
+					<tbody>
+					<tr th:each="transaction : ${transactions}">
+						<td th:text="${transaction.getTask() != null} ? ${transaction.getTask().getJiraId()} : '💸'"></td>
+						<td th:text="${transaction.getUser().getUsername()}"></td>
+						<td th:text="${transaction.getCredit()}"></td>
+						<td th:text="${transaction.getDebit()}"></td>
+						<td th:text="${transaction.getType().toString()}"></td>
+						<td th:text="${#temporals.format(transaction.getCreatedAt(), 'HH:mm:ss')}"></td>
+					</tr>
+					</tbody>
+				</table>
+			</div>
+			<a href="/payment" class="btn btn-primary bi-cash-coin"> Payment </a>
+		</div>
+	</div>
+</div>
+</body>

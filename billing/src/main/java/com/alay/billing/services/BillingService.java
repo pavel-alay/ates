@@ -13,7 +13,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
+import java.util.Comparator;
+import java.util.List;
 
 import static com.alay.billing.KafkaConsumerConfig.TASK_ASSIGNED_TOPIC;
 import static com.alay.billing.KafkaConsumerConfig.TASK_COMPLETED_TOPIC;
@@ -28,7 +29,6 @@ public class BillingService {
     private final TransactionRepository transactionRepository;
     private final KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate;
 
-
     public BillingService(TaskService taskService, UserService userService,
                           TransactionRepository transactionRepository,
                           KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate) {
@@ -40,7 +40,7 @@ public class BillingService {
 
     @KafkaListener(topics = TASK_ASSIGNED_TOPIC, containerFactory = "taskAssignedContainerFactory")
     public void taskAssigned(TaskAssigned taskAssigned) {
-        log.info(Objects.toString(taskAssigned));
+        log.info("<<< {}", taskAssigned);
         User user = userService.findOrCreateUser(taskAssigned.getPublicUserId());
         Task task = taskService.findOrCreateTask(taskAssigned.getPublicTaskId());
         Transaction transaction = Transaction.builder()
@@ -52,7 +52,7 @@ public class BillingService {
 
     @KafkaListener(topics = TASK_COMPLETED_TOPIC, containerFactory = "taskCompletedContainerFactory")
     public void taskCompleted(TaskCompleted taskCompleted) {
-        log.info(Objects.toString(taskCompleted));
+        log.info("<<< {}", taskCompleted);
         User user = userService.findOrCreateUser(taskCompleted.getPublicUserId());
         Task task = taskService.findOrCreateTask(taskCompleted.getPublicTaskId());
         Transaction transaction = Transaction.builder()
@@ -72,4 +72,9 @@ public class BillingService {
                 transaction.getCredit(), transaction.getDebit(), transactionType);
     }
 
+    public Iterable<Transaction> findAll() {
+        List<Transaction> transactions = transactionRepository.findAll();
+        transactions.sort(Comparator.comparing(Transaction::getCreatedAt, Comparator.reverseOrder()));
+        return transactions;
+    }
 }

@@ -48,7 +48,7 @@ public class UserService {
                 CreateUser createUser = MAPPER.readValue(consumerRecord.value(), CreateUser.class);
                 CreateUserRepresentation representation = MAPPER.readValue(createUser.representation, CreateUserRepresentation.class);
                 User user = updateOrCreateUser(createUser.resourcePath.substring(6), representation.username);
-                log.info("New user added {}: {}", user.getUsername(), user.getPublicId());
+                log.info("<<< UserCreated ({} {})", user.getUsername(), user.getPublicId());
             } catch (JsonProcessingException e) {
                 log.error("Cannot deserialize create user: {}, {}", consumerRecord.key(), consumerRecord.value());
             }
@@ -58,7 +58,7 @@ public class UserService {
     public User findOrCreateUser(String publicId) {
         return userRepository.findByPublicId(publicId).orElseGet(() -> tryToCreate(User.builder()
                 .publicId(publicId)
-                .build()));
+                .build(), false));
     }
 
     public User updateOrCreateUser(String publicId, String username) {
@@ -66,7 +66,7 @@ public class UserService {
         if (user.isEmpty()) {
             return tryToCreate(User.builder()
                     .publicId(publicId).username(username)
-                    .build());
+                    .build(), true);
         } else {
             user.get().setUsername(username);
             return userRepository.saveAndFlush(user.get());
@@ -74,14 +74,21 @@ public class UserService {
     }
 
     // Simplify with @Retry
-    private User tryToCreate(User user) {
+    private User tryToCreate(User user, boolean update) {
         try {
             return userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
+            log.info("tryToCreate retry: {}", e.getMessage());
             User newUser = userRepository.findByPublicId(user.getPublicId())
                     .orElseThrow(() -> new IllegalStateException("Cannot create nor update User", e));
-            return userRepository.saveAndFlush(
-                    newUser.setUsername(user.getUsername()));
+            if (update) {
+                return userRepository.saveAndFlush(newUser.setUsername(user.getUsername()));
+            } else {
+                return newUser;
+            }
+        } catch (Exception e) {
+            log.error("tryToCreate failed: {}", e.getMessage());
+            throw e;
         }
     }
 }

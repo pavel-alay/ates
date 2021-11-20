@@ -39,13 +39,14 @@ public class TaskService {
 
     @KafkaListener(topics = TASK_CREATED_TOPIC, containerFactory = "taskCreatedContainerFactory")
     public void taskCreated(TaskCreated taskCreated) {
+        log.info("<<< {}", taskCreated);
         Task task = updateOrCreateTask(taskCreated.getPublicTaskId(), taskCreated.getTitle(), taskCreated.getJiraId());
-        log.info("task created='{}'", task);
+        log.info("Task created {}", task);
     }
 
     public Task findOrCreateTask(String publicId) {
         return taskRepository.findByPublicId(publicId)
-                .orElseGet(() -> tryToCreate(Task.builder(publicId, getFee(), getReward()).build()));
+                .orElseGet(() -> tryToCreate(Task.builder(publicId, getFee(), getReward()).build(), false));
     }
 
     public Task updateOrCreateTask(String publicId, String title, String jiraId) {
@@ -53,7 +54,7 @@ public class TaskService {
         if (task.isEmpty()) {
             return tryToCreate(Task.builder(publicId, getFee(), getReward())
                     .title(title).jiraId(jiraId)
-                    .build());
+                    .build(), true);
         } else {
             return taskRepository.saveAndFlush(
                     task.get().setTitle(title).setJiraId(jiraId));
@@ -69,14 +70,23 @@ public class TaskService {
     }
 
     // Simplify with @Retry
-    private Task tryToCreate(Task task) {
+    private Task tryToCreate(Task task, boolean update) {
         try {
             return taskRepository.saveAndFlush(task);
         } catch (DataIntegrityViolationException e) {
+            log.info("tryToCreate retry: {}", e.getMessage());
             Task newTask =  taskRepository.findByPublicId(task.getPublicId())
                     .orElseThrow(() -> new IllegalStateException("Cannot create nor update Task", e));
-            return taskRepository.saveAndFlush(
-                    newTask.setTitle(task.getTitle()).setJiraId(task.getJiraId()));
+            if (update) {
+                return taskRepository.saveAndFlush(newTask
+                        .setTitle(task.getTitle())
+                        .setJiraId(task.getJiraId()));
+            } else {
+                return newTask;
+            }
+        } catch (Exception e) {
+            log.error("tryToCreate failed: {}", e.getMessage());
+            throw e;
         }
     }
 }
