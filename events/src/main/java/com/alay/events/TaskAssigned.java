@@ -6,11 +6,15 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class TaskAssigned {
-    String publicTaskId;
-    String publicUserId;
+    private String publicTaskId;
+    private String publicUserId;
+    private String title;
+    private String jiraId;
 
-    public TaskAssigned(String publicTaskId, String publicUserId) {
+    public TaskAssigned(String publicUserId, String publicTaskId, String title, String jiraId) {
         this.publicTaskId = publicTaskId;
         this.publicUserId = publicUserId;
+        this.title = title;
+        this.jiraId = jiraId;
     }
 }

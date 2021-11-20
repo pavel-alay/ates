@@ -8,10 +8,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import static com.alay.billing.KafkaConfig.ADMIN_EVENTS_TOPIC;
+import java.util.Optional;
+
+import static com.alay.billing.KafkaConsumerConfig.ADMIN_EVENTS_TOPIC;
 
 @Slf4j
 @Service
@@ -44,13 +47,41 @@ public class UserService {
             try {
                 CreateUser createUser = MAPPER.readValue(consumerRecord.value(), CreateUser.class);
                 CreateUserRepresentation representation = MAPPER.readValue(createUser.representation, CreateUserRepresentation.class);
-                String publicId = createUser.resourcePath.substring(6);
-                String username = representation.username;
-                userRepository.save(new User(username, publicId));
-                log.info("New user added {}: {}", username, publicId);
+                User user = updateOrCreateUser(createUser.resourcePath.substring(6), representation.username);
+                log.info("New user added {}: {}", user.getUsername(), user.getPublicId());
             } catch (JsonProcessingException e) {
                 log.error("Cannot deserialize create user: {}, {}", consumerRecord.key(), consumerRecord.value());
             }
+        }
+    }
+
+    public User findOrCreateUser(String publicId) {
+        return userRepository.findByPublicId(publicId).orElseGet(() -> tryToCreate(User.builder()
+                .publicId(publicId)
+                .build()));
+    }
+
+    public User updateOrCreateUser(String publicId, String username) {
+        Optional<User> user = userRepository.findByPublicId(publicId);
+        if (user.isEmpty()) {
+            return tryToCreate(User.builder()
+                    .publicId(publicId).username(username)
+                    .build());
+        } else {
+            user.get().setUsername(username);
+            return userRepository.saveAndFlush(user.get());
+        }
+    }
+
+    // Simplify with @Retry
+    private User tryToCreate(User user) {
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            User newUser = userRepository.findByPublicId(user.getPublicId())
+                    .orElseThrow(() -> new IllegalStateException("Cannot create nor update User", e));
+            return userRepository.saveAndFlush(
+                    newUser.setUsername(user.getUsername()));
         }
     }
 }

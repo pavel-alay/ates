@@ -105,7 +105,7 @@ public class TaskService {
     public void reassignTask(Task task, User user) {
         task.setUserId(user.getId());
         taskRepository.save(task);
-        publishEvent(new TaskAssigned(task.getPublicId(), user.getPublicId()),
+        publishEvent(new TaskAssigned(user.getPublicId(), task.getPublicId(), task.getTitle(), task.getJiraId()),
                 TASK_ASSIGNED_TOPIC, taskAssignedTemplate);
     }
 

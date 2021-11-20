@@ -1,6 +1,9 @@
 package com.alay.billing.entities;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.Entity;
@@ -14,6 +17,9 @@ import javax.persistence.Table;
 @Entity
 @Getter
 @Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "transaction_billing_cycle")
 public class TransactionBillingCycle {
 

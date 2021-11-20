@@ -1,4 +1,4 @@
-package com.alay.events;
+package com.alay.billing.entities;
 
 public enum TransactionType {
     TASK_ASSIGNED,

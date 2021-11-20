@@ -52,3 +52,9 @@ logging:
     root: INFO
 server:
   port: 8081
+
+min-fee: 10
+max-fee: 20
+
+min-reward: 20
+max-reward: 40
