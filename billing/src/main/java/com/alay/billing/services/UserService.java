@@ -8,8 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -55,40 +55,21 @@ public class UserService {
         }
     }
 
+    @Retryable
     public User findOrCreateUser(String publicId) {
-        return userRepository.findByPublicId(publicId).orElseGet(() -> tryToCreate(User.builder()
-                .publicId(publicId)
-                .build(), false));
+        return userRepository.findByPublicId(publicId)
+                .orElseGet(() -> userRepository.saveAndFlush(User.builder()
+                        .publicId(publicId).build()));
     }
 
-    public User updateOrCreateUser(String publicId, String username) {
+    private User updateOrCreateUser(String publicId, String username) {
         Optional<User> user = userRepository.findByPublicId(publicId);
         if (user.isEmpty()) {
-            return tryToCreate(User.builder()
-                    .publicId(publicId).username(username)
-                    .build(), true);
+            return userRepository.saveAndFlush(User.builder()
+                    .publicId(publicId).username(username).build());
         } else {
-            user.get().setUsername(username);
-            return userRepository.saveAndFlush(user.get());
-        }
-    }
-
-    // Simplify with @Retry
-    private User tryToCreate(User user, boolean update) {
-        try {
-            return userRepository.saveAndFlush(user);
-        } catch (DataIntegrityViolationException e) {
-            log.info("tryToCreate retry: {}", e.getMessage());
-            User newUser = userRepository.findByPublicId(user.getPublicId())
-                    .orElseThrow(() -> new IllegalStateException("Cannot create nor update User", e));
-            if (update) {
-                return userRepository.saveAndFlush(newUser.setUsername(user.getUsername()));
-            } else {
-                return newUser;
-            }
-        } catch (Exception e) {
-            log.error("tryToCreate failed: {}", e.getMessage());
-            throw e;
+            return userRepository.saveAndFlush(
+                    user.get().setUsername(username));
         }
     }
 }
