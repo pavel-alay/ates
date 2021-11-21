@@ -57,7 +57,7 @@ public class Transaction {
     private User user;
 
     @ManyToOne
-    @JoinTable(name = "transaction_billing_cycle",
+    @JoinTable(name = "billing_cycle_transaction",
             joinColumns = {@JoinColumn(name = "transaction_id")},
             inverseJoinColumns = {@JoinColumn(name = "billing_cycle_id")})
     private BillingCycle billingCycle;
@@ -73,5 +73,5 @@ public class Transaction {
     /**
      * Debit means fee for the assigned task or payment for the billing cycle.
      */
-     private long debit;
+    private long debit;
 }

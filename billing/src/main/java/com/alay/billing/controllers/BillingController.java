@@ -27,8 +27,7 @@ public class BillingController {
 
     @GetMapping("/payment")
     public String payment() {
-
-
+        billingService.createPayments();
         return "redirect:/transactions";
     }
 

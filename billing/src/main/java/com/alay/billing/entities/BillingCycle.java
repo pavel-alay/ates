@@ -15,7 +15,7 @@ import javax.persistence.JoinTable;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
-import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -35,8 +35,8 @@ public class BillingCycle {
     private User user;
 
     @OneToMany
-    @JoinTable(name = "transaction_billing_cycle",
-            joinColumns = {@JoinColumn(name = "transaction_id")},
-            inverseJoinColumns = {@JoinColumn(name = "billing_cycle_id")})
-    List<Transaction> transactions;
+    @JoinTable(name = "billing_cycle_transaction",
+            joinColumns = {@JoinColumn(name = "billing_cycle_id")},
+            inverseJoinColumns = {@JoinColumn(name = "transaction_id")})
+    private Set<Transaction> transaction;
 }

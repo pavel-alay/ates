@@ -29,6 +29,7 @@
 						<th>Debit</th>
 						<th>Type</th>
 						<th>Created At</th>
+						<th>Status</th>
 					</tr>
 					</thead>
 					<tbody>
@@ -38,7 +39,8 @@
 						<td th:text="${transaction.getCredit()}"></td>
 						<td th:text="${transaction.getDebit()}"></td>
 						<td th:text="${transaction.getType().toString()}"></td>
-						<td th:text="${#temporals.format(transaction.getCreatedAt(), 'HH:mm:ss')}"></td>
+						<td th:text="${#temporals.format(transaction.getCreatedAt(), 'MMM dd HH:mm:ss')}"></td>
+						<td th:text="${transaction.getBillingCycle() != null ? '✔️' : (transaction.getPayment() != null ? '🍚' : '')}"></td>
 					</tr>
 					</tbody>
 				</table>
