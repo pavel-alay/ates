@@ -1,24 +1,16 @@
 package com.alay.events;
 
+import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
+@Builder
 public class TransactionCreated {
-    String publicId;
+    String publicTransactionId;
     String publicUserId;
     String publicTaskId;
+    String origin;
     long credit;
     long debit;
     TransactionType type;
-
-    public TransactionCreated(String publicId, String publicUserId, String publicTaskId, long credit, long debit, TransactionType type) {
-        this.publicId = publicId;
-        this.publicUserId = publicUserId;
-        this.publicTaskId = publicTaskId;
-        this.credit = credit;
-        this.debit = debit;
-        this.type = type;
-    }
 }

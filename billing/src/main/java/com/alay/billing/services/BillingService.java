@@ -19,12 +19,12 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Set;
 
 import static com.alay.billing.KafkaConsumerConfig.TASK_ASSIGNED_TOPIC;
 import static com.alay.billing.KafkaConsumerConfig.TASK_COMPLETED_TOPIC;
-import static com.alay.billing.services.KafkaUtil.sendEvent;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toSet;
 
@@ -42,12 +42,13 @@ public class BillingService {
     private final TransactionTemplate transactionTemplate;
 
     private final KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate;
+    private final KafkaService kafkaService;
 
     public BillingService(TaskService taskService, UserService userService,
                           TransactionRepository transactionRepository, BillingCycleRepository billingCycleRepository,
                           PaymentRepository paymentRepository,
                           TransactionTemplate transactionTemplate,
-                          KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate) {
+                          KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate, KafkaService kafkaService) {
         this.taskService = taskService;
         this.userService = userService;
         this.transactionRepository = transactionRepository;
@@ -55,8 +56,14 @@ public class BillingService {
         this.paymentRepository = paymentRepository;
         this.transactionTemplate = transactionTemplate;
         this.transactionCreatedTemplate = transactionCreatedTemplate;
+        this.kafkaService = kafkaService;
     }
 
+    public List<Transaction> findAll() {
+        return transactionRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
+    @Transactional
     @KafkaListener(topics = TASK_ASSIGNED_TOPIC, containerFactory = "taskAssignedContainerFactory")
     public void taskAssigned(TaskAssigned taskAssigned) {
         log.info("<<< {}", taskAssigned);
@@ -66,9 +73,10 @@ public class BillingService {
                 .user(user).task(task).debit(task.getFee()).type(TransactionType.TASK_ASSIGNED)
                 .build();
         transactionRepository.save(transaction);
-        sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
+        kafkaService.sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
     }
 
+    @Transactional
     @KafkaListener(topics = TASK_COMPLETED_TOPIC, containerFactory = "taskCompletedContainerFactory")
     public void taskCompleted(TaskCompleted taskCompleted) {
         log.info("<<< {}", taskCompleted);
@@ -78,7 +86,7 @@ public class BillingService {
                 .user(user).task(task).credit(task.getReward()).type(TransactionType.TASK_COMPLETED)
                 .build();
         transactionRepository.save(transaction);
-        sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
+        kafkaService.sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
     }
 
     /**
@@ -99,6 +107,7 @@ public class BillingService {
                 .mapToLong(t -> t.getCredit() - t.getDebit())
                 .sum();
         if (amount > 0) {
+            log.warn("closing billing cycle for user {}", user);
             transactionTemplate.executeWithoutResult(status -> {
                 BillingCycle billingCycle = BillingCycle.builder()
                         .user(user).transaction(transactions).build();
@@ -109,23 +118,41 @@ public class BillingService {
                         .user(user).payment(payment).type(TransactionType.PAYMENT).debit(amount)
                         .build();
                 transactionRepository.save(paymentTransaction);
-                sendEvent(transactionToEvent(paymentTransaction), transactionCreatedTemplate);
+                kafkaService.sendEvent(transactionToEvent(paymentTransaction), transactionCreatedTemplate);
             });
         }
     }
 
 
     private TransactionCreated transactionToEvent(Transaction transaction) {
-        com.alay.events.TransactionType transactionType = switch (transaction.getType()) {
-            case TASK_ASSIGNED -> com.alay.events.TransactionType.TASK_ASSIGNED;
-            case TASK_COMPLETED -> com.alay.events.TransactionType.TASK_COMPLETED;
-            case PAYMENT -> com.alay.events.TransactionType.PAYMENT;
-        };
-        return new TransactionCreated(transaction.getPublicId(), transaction.getUser().getPublicId(), transaction.getTask().getPublicId(),
-                transaction.getCredit(), transaction.getDebit(), transactionType);
-    }
-
-    public List<Transaction> findAll() {
-        return transactionRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+        com.alay.events.TransactionType transactionType;
+        String publicTaskId = null;
+        String origin;
+        switch (transaction.getType()) {
+            case TASK_ASSIGNED -> {
+                transactionType = com.alay.events.TransactionType.TASK_ASSIGNED;
+                publicTaskId = transaction.getTask().getPublicId();
+                origin = "Task assigned";
+            }
+            case TASK_COMPLETED -> {
+                transactionType = com.alay.events.TransactionType.TASK_COMPLETED;
+                publicTaskId = transaction.getTask().getPublicId();
+                origin = "Task completed";
+            }
+            case PAYMENT -> {
+                transactionType = com.alay.events.TransactionType.PAYMENT;
+                origin = "Payment";
+            }
+            default -> throw new IllegalArgumentException();
+        }
+        return TransactionCreated.builder()
+                .type(transactionType)
+                .origin(origin)
+                .publicTransactionId(transaction.getPublicId())
+                .publicUserId(transaction.getUser().getPublicId())
+                .publicTaskId(publicTaskId)
+                .credit(transaction.getCredit())
+                .debit(transaction.getDebit())
+                .build();
     }
 }
