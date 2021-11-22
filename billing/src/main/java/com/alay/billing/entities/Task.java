@@ -14,7 +14,6 @@ import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
 import java.util.List;
 
 @Entity
@@ -33,7 +32,6 @@ public class Task {
     @Column(name = "public_id", unique = true)
     private String publicId;
 
-    @Pattern(regexp = "[^\\[\\]]*", message = "Title must not contain [ or ]")
     private String title;
 
     @Column(name = "jira_id")
