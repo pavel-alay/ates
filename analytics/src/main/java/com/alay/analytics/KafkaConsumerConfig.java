@@ -1,8 +1,9 @@
-package com.alay.billing;
+package com.alay.analytics;
 
-import com.alay.events.TaskAssigned;
 import com.alay.events.TaskCompleted;
 import com.alay.events.TaskCreated;
+import com.alay.events.TaskUpdated;
+import com.alay.events.BalanceUpdated;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -36,8 +37,8 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TaskAssigned> taskAssignedContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, TaskAssigned> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, TaskUpdated> taskUpdatedContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, TaskUpdated> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(createConsumerFactory());
         setupErrorHandling(factory);
         return factory;
@@ -46,6 +47,14 @@ public class KafkaConsumerConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, TaskCompleted> taskCompletedContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, TaskCompleted> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(createConsumerFactory());
+        setupErrorHandling(factory);
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, BalanceUpdated> balanceUpdatedContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, BalanceUpdated> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(createConsumerFactory());
         setupErrorHandling(factory);
         return factory;

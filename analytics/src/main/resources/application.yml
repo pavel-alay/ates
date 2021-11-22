@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://192.168.1.3:5432/billing_db
+    url: jdbc:postgresql://192.168.1.3:5432/analytics_db
     username: postgres
     password: postgres
   jpa:
@@ -17,11 +17,11 @@ spring:
       client:
         registration:
           custom:
-            client-id: billing
-            client-secret: 67a06434-e258-464f-84a2-da6ac3c08d6e
+            client-id: analytics
+            client-secret: e1e273ec-3113-4aab-b217-b77de1458173
             scope: read,write,roles
             authorization-grant-type: authorization_code
-            redirect-uri: http://localhost:8081/login/oauth2/code/custom
+            redirect-uri: http://localhost:8082/login/oauth2/code/custom
         provider:
           custom:
             authorization-uri: http://192.168.1.3:8484/auth/realms/ates/protocol/openid-connect/auth
@@ -37,24 +37,18 @@ spring:
   kafka:
     bootstrap-servers: broker:9092
     consumer:
-      group-id: billing
+      group-id: analytics
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        schema.registry.url: schema-registry:8081
-        auto.register.schemas: true
+    properties:
+      schema.registry.url: schema-registry:8081
+      auto.register.schemas: true
 
 logging:
   level:
     root: INFO
 server:
-  port: 8081
-
-min-fee: 10
-max-fee: 20
-
-min-reward: 20
-max-reward: 40
+  port: 8082

@@ -3,22 +3,28 @@ package com.alay.billing.services;
 import com.alay.billing.entities.Task;
 import com.alay.billing.repositories.TaskRepository;
 import com.alay.events.TaskCreated;
+import com.alay.events.TaskUpdated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.alay.billing.KafkaConsumerConfig.TASK_CREATED_TOPIC;
+import static com.alay.events.Topics.TASK_CREATED_TOPIC;
 
 @Slf4j
 @Service
 public class TaskService {
 
     private final TaskRepository taskRepository;
+
+    private final KafkaTemplate<String, TaskUpdated> taskUpdatedTemplate;
+    private final KafkaService kafkaService;
+
 
     private final long minFee;
     private final long maxFee;
@@ -27,10 +33,13 @@ public class TaskService {
     private final long maxReward;
 
     public TaskService(TaskRepository taskRepository,
+                       KafkaTemplate<String, TaskUpdated> taskUpdatedTemplate, KafkaService kafkaService,
                        @Value("${min-fee}") long minFee, @Value("${max-fee}") long maxFee,
                        @Value("${min-reward}") long minReward, @Value("${max-reward}") long maxReward) {
 
         this.taskRepository = taskRepository;
+        this.taskUpdatedTemplate = taskUpdatedTemplate;
+        this.kafkaService = kafkaService;
         this.minFee = minFee;
         this.maxFee = maxFee;
         this.minReward = minReward;
@@ -41,9 +50,14 @@ public class TaskService {
     public void taskCreated(TaskCreated taskCreated) throws InterruptedException {
         // Added to prevent concurrent add for task_created and task_assigned events.
         Thread.sleep(300);
-        log.info("<<< {}", taskCreated);
         Task task = updateOrCreateTask(taskCreated.getPublicTaskId(), taskCreated.getTitle(), taskCreated.getJiraId());
         log.info("Task created {}", task);
+        kafkaService.sendEvent(TaskUpdated.builder()
+            .publicTaskId(task.getPublicId())
+                .reward(task.getReward())
+                    .fee(task.getFee())
+            .build(), taskUpdatedTemplate);
+
     }
 
     @Retryable

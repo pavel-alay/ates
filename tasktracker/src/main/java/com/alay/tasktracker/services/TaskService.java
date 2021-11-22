@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -66,13 +67,14 @@ public class TaskService {
 
     public void completeTask(long taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalStateException("Task not found"));
+            .orElseThrow(() -> new IllegalStateException("Task not found"));
         User user = userRepository.findById(task.getUserId())
-                .orElseThrow(() -> new IllegalStateException("User not found"));
-        task.setStatus(TaskStatus.COMPLETED);
-        taskRepository.save(task);
-        publishEvent(new TaskCompleted(task.getPublicId(), user.getPublicId()),
-                TASK_COMPLETED_TOPIC, taskCompletedTemplate);
+            .orElseThrow(() -> new IllegalStateException("User not found"));
+        task = taskRepository.save(task
+            .setStatus(TaskStatus.COMPLETED)
+            .setCompletedAt(LocalDateTime.now()));
+        publishEvent(new TaskCompleted(task.getPublicId(), user.getPublicId(), task.getCompletedAt()),
+            TASK_COMPLETED_TOPIC, taskCompletedTemplate);
     }
 
     /**
@@ -82,7 +84,7 @@ public class TaskService {
         taskRepository.save(task);
         assignTask(task);
         publishEvent(new TaskCreated(task.getPublicId(), task.getJiraId(), task.getTitle()),
-                TASK_CREATED_TOPIC, taskCreatedTemplate);
+            TASK_CREATED_TOPIC, taskCreatedTemplate);
     }
 
     public Iterable<Task> findAll() {
@@ -97,7 +99,7 @@ public class TaskService {
      */
     public void assignTask(Task task) {
         User user = userRepository.findRandomUser()
-                .orElseThrow(() -> new IllegalStateException("There is no users"));
+            .orElseThrow(() -> new IllegalStateException("There is no users"));
         reassignTask(task, user);
     }
 
@@ -106,7 +108,7 @@ public class TaskService {
         task.setUserId(user.getId());
         taskRepository.save(task);
         publishEvent(new TaskAssigned(user.getPublicId(), task.getPublicId(), task.getTitle(), task.getJiraId()),
-                TASK_ASSIGNED_TOPIC, taskAssignedTemplate);
+            TASK_ASSIGNED_TOPIC, taskAssignedTemplate);
     }
 
     private static <T> void publishEvent(T event, String topic, KafkaTemplate<String, T> template) {

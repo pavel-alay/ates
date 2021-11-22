@@ -1,7 +1,8 @@
-package com.alay.billing.services;
+package com.alay.analytics.services;
 
-import com.alay.billing.entities.User;
-import com.alay.billing.repositories.UserRepository;
+import com.alay.analytics.entities.User;
+import com.alay.analytics.repositories.UserRepository;
+import com.alay.events.BalanceUpdated;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +13,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 import static com.alay.events.Topics.ADMIN_EVENTS_TOPIC;
+import static com.alay.events.Topics.USER_BALANCE_UPDATED;
 
 @Slf4j
 @Service
@@ -44,11 +46,17 @@ public class UserService {
             try {
                 CreateUser createUser = MAPPER.readValue(consumerRecord.value(), CreateUser.class);
                 CreateUserRepresentation representation = MAPPER.readValue(createUser.representation, CreateUserRepresentation.class);
-                User user = userRepository.updateOrCreateUser(createUser.resourcePath.substring(6), representation.username);
+                User user = userRepository.updateOrCreate(createUser.resourcePath.substring(6), representation.username);
                 log.info("<<< UserCreated ({} {})", user.getUsername(), user.getPublicId());
             } catch (JsonProcessingException e) {
                 log.error("Cannot deserialize create user: {}, {}", consumerRecord.key(), consumerRecord.value());
             }
         }
+    }
+
+    @KafkaListener(topics = USER_BALANCE_UPDATED, containerFactory = "balanceUpdatedContainerFactory")
+    public void taskCreated(BalanceUpdated balanceUpdated) {
+        log.info("<<< {}", balanceUpdated);
+        userRepository.updateBalance(balanceUpdated.getPublicUserId(), balanceUpdated.getBalance());
     }
 }

@@ -1,5 +1,6 @@
 package com.alay.billing.controllers;
 
+import com.alay.billing.repositories.UserRepository;
 import com.alay.billing.services.BillingService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,9 +10,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class BillingController {
 
     final BillingService billingService;
+    final UserRepository userRepository;
 
-    public BillingController(BillingService billingService) {
+    public BillingController(BillingService billingService, UserRepository userRepository) {
         this.billingService = billingService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/transactions")
@@ -31,4 +34,9 @@ public class BillingController {
         return "redirect:/transactions";
     }
 
+    @GetMapping("/users")
+    public String showUsers(Model model) {
+        model.addAttribute("users", userRepository.findAll());
+        return "users";
+    }
 }

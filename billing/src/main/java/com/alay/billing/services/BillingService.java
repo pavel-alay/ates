@@ -9,9 +9,10 @@ import com.alay.billing.entities.User;
 import com.alay.billing.repositories.BillingCycleRepository;
 import com.alay.billing.repositories.PaymentRepository;
 import com.alay.billing.repositories.TransactionRepository;
+import com.alay.billing.repositories.UserRepository;
+import com.alay.events.BalanceUpdated;
 import com.alay.events.TaskAssigned;
 import com.alay.events.TaskCompleted;
-import com.alay.events.TransactionCreated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,8 +24,8 @@ import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Set;
 
-import static com.alay.billing.KafkaConsumerConfig.TASK_ASSIGNED_TOPIC;
-import static com.alay.billing.KafkaConsumerConfig.TASK_COMPLETED_TOPIC;
+import static com.alay.events.Topics.TASK_ASSIGNED_TOPIC;
+import static com.alay.events.Topics.TASK_COMPLETED_TOPIC;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toSet;
 
@@ -33,29 +34,30 @@ import static java.util.stream.Collectors.toSet;
 public class BillingService {
 
     private final TaskService taskService;
-    private final UserService userService;
+
 
     private final TransactionRepository transactionRepository;
     private final BillingCycleRepository billingCycleRepository;
     private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
 
     private final TransactionTemplate transactionTemplate;
 
-    private final KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate;
+    private final KafkaTemplate<String, BalanceUpdated> balanceUpdatedTemplate;
     private final KafkaService kafkaService;
 
-    public BillingService(TaskService taskService, UserService userService,
+    public BillingService(TaskService taskService,
                           TransactionRepository transactionRepository, BillingCycleRepository billingCycleRepository,
                           PaymentRepository paymentRepository,
-                          TransactionTemplate transactionTemplate,
-                          KafkaTemplate<String, TransactionCreated> transactionCreatedTemplate, KafkaService kafkaService) {
+                          UserRepository userRepository, TransactionTemplate transactionTemplate,
+                          KafkaTemplate<String, BalanceUpdated> balanceUpdatedTemplate, KafkaService kafkaService) {
         this.taskService = taskService;
-        this.userService = userService;
         this.transactionRepository = transactionRepository;
         this.billingCycleRepository = billingCycleRepository;
         this.paymentRepository = paymentRepository;
+        this.userRepository = userRepository;
         this.transactionTemplate = transactionTemplate;
-        this.transactionCreatedTemplate = transactionCreatedTemplate;
+        this.balanceUpdatedTemplate = balanceUpdatedTemplate;
         this.kafkaService = kafkaService;
     }
 
@@ -67,26 +69,28 @@ public class BillingService {
     @KafkaListener(topics = TASK_ASSIGNED_TOPIC, containerFactory = "taskAssignedContainerFactory")
     public void taskAssigned(TaskAssigned taskAssigned) {
         log.info("<<< {}", taskAssigned);
-        User user = userService.findOrCreateUser(taskAssigned.getPublicUserId());
+        User user = userRepository.findOrCreateUser(taskAssigned.getPublicUserId());
         Task task = taskService.findOrCreateTask(taskAssigned.getPublicTaskId());
         Transaction transaction = Transaction.builder()
-                .user(user).task(task).debit(task.getFee()).type(TransactionType.TASK_ASSIGNED)
-                .build();
+            .user(user).task(task).debit(task.getFee()).type(TransactionType.TASK_ASSIGNED)
+            .build();
         transactionRepository.save(transaction);
-        kafkaService.sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
+        user = userRepository.debitBalance(user, task.getFee());
+        sendBalanceUpdatedEvent(user, BalanceUpdated.Origin.TASK_ASSIGNED);
     }
 
     @Transactional
     @KafkaListener(topics = TASK_COMPLETED_TOPIC, containerFactory = "taskCompletedContainerFactory")
     public void taskCompleted(TaskCompleted taskCompleted) {
         log.info("<<< {}", taskCompleted);
-        User user = userService.findOrCreateUser(taskCompleted.getPublicUserId());
+        User user = userRepository.findOrCreateUser(taskCompleted.getPublicUserId());
         Task task = taskService.findOrCreateTask(taskCompleted.getPublicTaskId());
         Transaction transaction = Transaction.builder()
-                .user(user).task(task).credit(task.getReward()).type(TransactionType.TASK_COMPLETED)
-                .build();
+            .user(user).task(task).credit(task.getReward()).type(TransactionType.TASK_COMPLETED)
+            .build();
         transactionRepository.save(transaction);
-        kafkaService.sendEvent(transactionToEvent(transaction), transactionCreatedTemplate);
+        user = userRepository.creditBalance(user, task.getReward());
+        sendBalanceUpdatedEvent(user, BalanceUpdated.Origin.TASK_COMPLETED);
     }
 
     /**
@@ -98,61 +102,40 @@ public class BillingService {
      */
     public void createPayments() {
         transactionRepository.getOpenTaskTransactions().stream()
-                .collect(groupingBy(Transaction::getUser, toSet()))
-                .forEach(this::closeBillingCycle);
+            .collect(groupingBy(Transaction::getUser, toSet()))
+            .forEach(this::closeBillingCycle);
     }
 
     protected void closeBillingCycle(User user, Set<Transaction> transactions) {
         long amount = transactions.stream()
-                .mapToLong(t -> t.getCredit() - t.getDebit())
-                .sum();
+            .mapToLong(t -> t.getCredit() - t.getDebit())
+            .sum();
         if (amount > 0) {
             log.warn("closing billing cycle for user {}", user);
             transactionTemplate.executeWithoutResult(status -> {
                 BillingCycle billingCycle = BillingCycle.builder()
-                        .user(user).transaction(transactions).build();
+                    .user(user).transaction(transactions).build();
                 billingCycle = billingCycleRepository.save(billingCycle);
                 Payment payment = Payment.builder().billingCycle(billingCycle).amount(amount).build();
                 payment = paymentRepository.save(payment);
                 Transaction paymentTransaction = Transaction.builder()
-                        .user(user).payment(payment).type(TransactionType.PAYMENT).debit(amount)
-                        .build();
+                    .user(user).payment(payment).type(TransactionType.PAYMENT).debit(amount)
+                    .createdAt(payment.getCreatedAt())
+                    .build();
                 transactionRepository.save(paymentTransaction);
-                kafkaService.sendEvent(transactionToEvent(paymentTransaction), transactionCreatedTemplate);
+                User updatedUser = userRepository.debitBalance(user, amount);
+                sendBalanceUpdatedEvent(updatedUser, BalanceUpdated.Origin.PAYMENT);
             });
         }
     }
 
-
-    private TransactionCreated transactionToEvent(Transaction transaction) {
-        com.alay.events.TransactionType transactionType;
-        String publicTaskId = null;
-        String origin;
-        switch (transaction.getType()) {
-            case TASK_ASSIGNED -> {
-                transactionType = com.alay.events.TransactionType.TASK_ASSIGNED;
-                publicTaskId = transaction.getTask().getPublicId();
-                origin = "Task assigned";
-            }
-            case TASK_COMPLETED -> {
-                transactionType = com.alay.events.TransactionType.TASK_COMPLETED;
-                publicTaskId = transaction.getTask().getPublicId();
-                origin = "Task completed";
-            }
-            case PAYMENT -> {
-                transactionType = com.alay.events.TransactionType.PAYMENT;
-                origin = "Payment";
-            }
-            default -> throw new IllegalArgumentException();
-        }
-        return TransactionCreated.builder()
-                .type(transactionType)
-                .origin(origin)
-                .publicTransactionId(transaction.getPublicId())
-                .publicUserId(transaction.getUser().getPublicId())
-                .publicTaskId(publicTaskId)
-                .credit(transaction.getCredit())
-                .debit(transaction.getDebit())
-                .build();
+    private void sendBalanceUpdatedEvent(User user, BalanceUpdated.Origin origin) {
+        kafkaService.sendEvent(
+            BalanceUpdated.builder()
+                .publicUserId(user.getPublicId())
+                .balance(user.getBalance())
+                .type(origin)
+                .build(),
+            balanceUpdatedTemplate);
     }
 }
