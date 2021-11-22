@@ -43,9 +43,9 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        schema.registry.url: schema-registry:8081
-        auto.register.schemas: true
+    properties:
+      schema.registry.url: http://schema-registry:8081
+      auto.register.schemas: true
 
 logging:
   level:
