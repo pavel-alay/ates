@@ -1,25 +1,25 @@
-package com.alay.tasktracker.entities;
+package com.alay.analytics.entities;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class Task {
 
     @Id
@@ -27,22 +27,17 @@ public class Task {
     private long id;
 
     @NotBlank(message = "Public Id is mandatory")
-    @Column(name = "public_id")
-    private String publicId = UUID.randomUUID().toString();
+    @Column(name = "public_id", unique = true)
+    private String publicId;
 
-    @Column(name = "user_id")
-    private Long userId;
-
-    @NotBlank(message = "Title is mandatory")
-    @Pattern(regexp = "[^\\[\\]]*", message = "Title must not contain [ or ]")
     private String title;
 
-    @NotBlank(message = "JIRA id is mandatory")
     @Column(name = "jira_id")
     private String jiraId;
 
-    @Enumerated(EnumType.STRING)
-    private TaskStatus status = TaskStatus.OPEN;
+    private Long fee;
+
+    private Long reward;
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;

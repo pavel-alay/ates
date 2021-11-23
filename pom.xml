@@ -9,9 +9,30 @@
 	<version>1.0.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.5.6</version>
+		<relativePath />
+	</parent>
+
 	<modules>
 		<module>keycloak-spi-kafka</module>
 		<module>tasktracker</module>
+		<module>billing</module>
+		<module>analytics</module>
+		<module>events</module>
 	</modules>
 
+
+	<repositories>
+		<repository>
+			<id>maven-central</id>
+			<url>https://repo.maven.apache.org/maven2/</url>
+		</repository>
+		<repository>
+			<id>confluent-repo</id>
+			<url>https://packages.confluent.io/maven/</url>
+		</repository>
+	</repositories>
 </project>
